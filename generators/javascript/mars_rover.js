@@ -27,7 +27,10 @@ JavaScript['move_forward'] = function(block) {
   //const value = JavaScript.valueToCode(block, 'TEXT',
   //    JavaScript.ORDER_NONE) || "''";
   const speed = block.getFieldValue('SPEED');
-  const code =  'motor_speed = '+speed+';\n document.dispatchEvent(event_move_forward);\n ';
+  //const code =  'motor_speed = '+speed+';\n document.dispatchEvent(event_move_forward);\n ';
+  // for acron 
+  const code = "move_forward_acorn();\n";
+  
   return code;
 };
 
@@ -37,7 +40,8 @@ JavaScript['rover_stop'] = function(block) {
   //    block.getFieldValue('SERVO'), NameType.VARIABLE);
   //const value = JavaScript.valueToCode(block, 'TEXT',
   //    JavaScript.ORDER_NONE) || "''";
-  const code =  'document.dispatchEvent(event_rover_stop);\n';
+  //const code =  'document.dispatchEvent(event_rover_stop);\n';
+  const code = "rover_stop_acorn();\n";
   return code;
 };
 

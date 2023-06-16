@@ -161,15 +161,6 @@
 
         const outputArea = document.getElementById('output');
 
-         // Custom event: move_forward 
-        // motor control block
-        var motor_speed = 0;
-        const event_move_forward = new Event("move_forward")
-        document.addEventListener("move_forward", e => {
-          console.log("move forward "+ motor_speed);
-          //colinkWs.send("BU"+motor_speed+'Z');
-        })
-
         /**
         * Load blocks saved on App Engine Storage or in session/local storage.
         * @param {string} defaultXml Text representation of default blocks.
@@ -264,6 +255,14 @@
           //myInterpreter = null;
         }
 
+          // Custom event: move_forward 
+        const event_move_forward = new Event("move_forward")
+        document.addEventListener("move_forward", e => {
+          console.log("move forward" );
+          //colinkWs.send("AU");
+        })
+
+
         Code.initApi = function (interpreter, globalObject) {
           // Add an API function for the alert() block, generated for "text_print" blocks.
           const wrapperAlert = function alert(text) {
@@ -287,6 +286,13 @@
           };
           interpreter.setProperty(globalObject, 'highlightBlock',
               interpreter.createNativeFunction(wrapper));
+
+          // 
+          const wrapperEvtTrig = function(){
+            return document.dispatchEvent(event_move_forward);
+          }
+          interpreter.setProperty(globalObject, 'move_forward',
+              interpreter.createNativeFunction(wrapperEvtTrig));
     
           // Add an API for the wait block.  See wait_block.js
           initInterpreterWaitForSeconds(interpreter, globalObject);
@@ -370,14 +376,6 @@
             });
           interpreter.setProperty(globalObject, 'waitForSeconds', wrapper);*/
       
-            var colinkWs
-            let host = "cobot.center"
-            let port = 8287;
-            channlesApiUrl = `http://cobot.center:8287/monitor/http/cmd?format=json&obj=channel&op=show`;
-            colinkUrl = `ws://cobot.center:8286/pang/ws/sub?channel=ca6s906pjh63qlu2ahh0&track=colink&mode=bundle`;
-            colinkWs = new WebSocket(colinkUrl);
-            colinkWs.send("BU"+motor_speed+'Z');
-        
         }
 
        

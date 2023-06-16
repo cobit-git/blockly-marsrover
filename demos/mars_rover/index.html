@@ -227,7 +227,7 @@
     const event_move_forward = new Event("move_forward")
     document.addEventListener("move_forward", e => {
       console.log("move forward "+ motor_speed);
-      colinkWs.send("BU"+motor_speed+'Z');
+      colinkWs.send("BU"+100+'Z');
     })
 
     // Custom event: move_forward 

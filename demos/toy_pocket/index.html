@@ -7,6 +7,7 @@
   <title>Toy Finder</title>
   <link rel="stylesheet" href="style.css">
   <script src="/storage.js"></script>
+  <script src="acorn_interpreter.js"></script>
   <script src="../../dist/blockly_compressed.js"></script>
   <script src="../../dist/blocks_compressed.js"></script>
   <script src="../../dist/javascript_compressed.js"></script>
@@ -118,17 +119,21 @@
   <div id="control-container" style="height: 480px; width: 600px;"></div>
     
   </div>
+  <div style="width: 100%">
+    <div id="blocklyDiv"
+        style="display: inline-block; height: 480px; width: 58%"></div>
+    <textarea id="output" disabled="disabled"
+        style="display: inline-block; height: 480px; width: 38%;">
+    </textarea>
+  </div>
 
 </div>
 </body>
 <xml xmlns="https://developers.google.com/blockly/xml" id="toolbox" style="display: none">
   <category name="Mars Rover control" colour=200>
-    <block type="move_forward">
-    </block>
-    <block type="rover_stop">
-    </block>
-    <block type="wait_mili_sec">
-    </block>
+    <block type="move_forward"></block>
+    <block type="rover_stop"></block>
+    <block type="wait_seconds"></block>
   </category>
   
   <category name="Logic" colour="%{BKY_LOGIC_HUE}">
@@ -172,6 +177,14 @@
         * @type {Blockly.WorkspaceSvg}
         */
         Code.workspace = null;
+
+          /**
+        * Variables 
+        */
+        let runnerPid = 0;
+        let myInterpreter = null
+
+        const outputArea = document.getElementById('output');
 
                 /**
         * Load blocks saved on App Engine Storage or in session/local storage.
@@ -250,7 +263,96 @@
             }
         };
 
+         /**
+        * 
+        * 
+        * @param {clearOutput} 
+        */
+        Code.resetStepUi = function(clearOutput) {
+        
+        //clearTimeout(runnerPid);
+        //demoWorkspace.highlightBlock(null);
+        //runButton.disabled = '';
+  
+        if (clearOutput) {
+          outputArea.value = 'Program output:\n=================';
+        }
+        //myInterpreter = null;
+        }
 
+
+      Code.initApi = function (interpreter, globalObject) {
+        // Add an API function for the alert() block, generated for "text_print" blocks.
+        const wrapperAlert = function alert(text) {
+          text = arguments.length ? text : '';
+          outputArea.value += '\n' + text;
+        };
+        interpreter.setProperty(globalObject, 'alert',
+            interpreter.createNativeFunction(wrapperAlert));
+  
+        // Add an API function for the prompt() block.
+        const wrapperPrompt = function prompt(text) {
+          return window.prompt(text);
+        };
+        interpreter.setProperty(globalObject, 'prompt',
+            interpreter.createNativeFunction(wrapperPrompt));
+  
+        // Add an API function for highlighting blocks.
+        const wrapper = function(id) {
+          id = String(id || '');
+          return highlightBlock(id);
+        };
+        interpreter.setProperty(globalObject, 'highlightBlock',
+            interpreter.createNativeFunction(wrapper));
+
+        // 
+        const wrapperEvtMoFo= function(){
+          return document.dispatchEvent(event_move_forward);
+        }
+        interpreter.setProperty(globalObject, 'move_forward_acorn',
+            interpreter.createNativeFunction(wrapperEvtMoFo));
+
+        //
+        const wrapperEvtStop = function(){
+          return document.dispatchEvent(event_rover_stop);
+        }
+        interpreter.setProperty(globalObject, 'rover_stop_acorn',
+            interpreter.createNativeFunction(wrapperEvtStop));
+  
+        // Add an API for the wait block.  See wait_block.js
+        initInterpreterWaitForSeconds(interpreter, globalObject);
+      }
+
+      Code.runner = function(){
+        if (myInterpreter) {
+          const hasMore = myInterpreter.run();
+          if (hasMore) {
+            // Execution is currently blocked by some async call.
+            // Try again later.
+            runnerPid = setTimeout(Code.runner, 10);
+          } else {
+            // Program is complete.
+            outputArea.value += '\n\n<< Program complete >>';
+            Code.resetStepUi(false);
+          }
+        }
+      }
+  
+
+      Code.runner = function(){
+          if (myInterpreter) {
+            const hasMore = myInterpreter.run();
+            if (hasMore) {
+              // Execution is currently blocked by some async call.
+              // Try again later.
+              runnerPid = setTimeout(Code.runner, 10);
+            } else {
+              // Program is complete.
+              outputArea.value += '\n\n<< Program complete >>';
+              Code.resetStepUi(false);
+            }
+          }
+        }
 
         /**
         * Execute the user's code.
@@ -258,25 +360,34 @@
         * @param {Event} event Event created from listener bound to the function.
         */
         Code.runJS = function(event) {
-            // Prevent code from being executed twice on touchscreens.
-            if (event.type === 'touchend') {
-            event.preventDefault();
+          // Prevent code from being executed twice on touchscreens.
+          if (event.type === 'touchend') {
+              event.preventDefault();
             }
-        
-            Blockly.JavaScript.INFINITE_LOOP_TRAP = 'checkTimeout();\n';
-            var timeouts = 0;
-            var checkTimeout = function() {
-            if (timeouts++ > 1000000) {
-                throw MSG['timeout'];
+            if(!myInterpreter){
+              Code.resetStepUi(true);
+          
+              //Blockly.JavaScript.INFINITE_LOOP_TRAP = 'checkTimeout();\n';
+              //var timeouts = 0;
+              //var checkTimeout = function() {
+              //  if (timeouts++ > 1000000) {
+              //      throw MSG['timeout'];
+              //  }
+              //};
+              var code = Blockly.JavaScript.workspaceToCode(Code.workspace);
+              myInterpreter = new Interpreter(code, Code.initApi);
+
+              
+              Code.runner();
+              //Blockly.JavaScript.INFINITE_LOOP_TRAP = null;
+              //try {
+              //  eval(code);
+              //} catch (e) {
+              //  alert(MSG['badCode'].replace('%1', e));
+             // }
             }
-            };
-            var code = Blockly.JavaScript.workspaceToCode(Code.workspace);
-            Blockly.JavaScript.INFINITE_LOOP_TRAP = null;
-            try {
-            eval(code);
-            } catch (e) {
-            alert(MSG['badCode'].replace('%1', e));
-            }
+
+            
         };
 
         Code.bindClick('trashButton',
@@ -351,22 +462,23 @@
     colinkWs.send("STOP");
   })
 
-  // Custom event: delay
-  const event_rover_delay = new Event("delay")
-  document.addEventListener("delay", e => {
-    console.log("delay");
-    var run = true;
-    while(run){
-      setInterval(function(){
-          run = false;
-        },3000);
-    }
-  }) 
-  setInterval(function(){
-    alert('hi');
-    },3000);
-    
+  /**
+    * Register the interpreter asynchronous function
+    * <code>waitForSeconds()</code>.
+    */
+    function initInterpreterWaitForSeconds(interpreter, globalObject) {
+      // Ensure function name does not conflict with variable names.
+      Blockly.JavaScript.addReservedWords('waitForSeconds');
 
+      const wrapper = interpreter.createAsyncFunction(
+        function(timeInSeconds, callback) {
+          // Delay the call to the callback.
+          setTimeout(callback, timeInSeconds * 1000);
+        });
+      interpreter.setProperty(globalObject, 'waitForSeconds', wrapper);
+
+    }
+  
   // To disable scroll for arrow keys and space key 
   function disableScroll() { 
     document.body.classList.add("stop-scrolling"); 
