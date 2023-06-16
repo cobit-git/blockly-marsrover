@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="google" value="notranslate">
-  <title>Blockly Demo:</title>
+  <title>Toy Finder</title>
   <link rel="stylesheet" href="style.css">
   <script src="/storage.js"></script>
   <script src="../../dist/blockly_compressed.js"></script>
@@ -14,6 +14,10 @@
   <script src="../../dist/php_compressed.js"></script>
   <script src="../../dist/lua_compressed.js"></script>
   <script src="../../dist/dart_compressed.js"></script>
+  <!-- Object detecting -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/knn-classifier"></script>
  
   
   <!--<script src="../../blocks/blocks.js"></script>
@@ -41,6 +45,11 @@
 </head>
 
 <body>
+  <!-- Temporal object detecting trigger -->
+  <button id ="class-a">Add A</button>
+  <button id ="class-b">Add B</button>
+  <button id ="class-c">Add C</button>
+  <div id="console"></div>
   <table>
     <thead>
       <tr>
@@ -178,6 +187,35 @@
       
       openChannels(host, port);
     });
+
+    async function load_model(){
+      console.log('loading moblienet...');
+      net = await mobilenet.load();
+      console.log('Successfully loaded model');
+    }
+
+    const addExample = async classId => {
+      // Capture an image from the web camera.
+      const img = await webcam.capture();
+  
+      // Get the intermediate activation of MobileNet 'conv_preds' and pass that
+      // to the KNN classifier.
+      const activation = net.infer(img, true);
+  
+      // Pass the intermediate activation to the classifier.
+      classifier.addExample(activation, classId);
+  
+      // Dispose the tensor to release the memory.
+      img.dispose();
+    };
+
+    // When clicking a button, add an example for that class.
+    document.getElementById('class-a').addEventListener('click', () => addExample(0));
+    document.getElementById('class-b').addEventListener('click', () => addExample(1));
+    document.getElementById('class-c').addEventListener('click', () => addExample(2));
+
+    const classifier = knnClassifier.create();
+    load_model();
 
     var colinkWs;
     // motor control block
@@ -568,16 +606,16 @@
       img.onload = function(){
         canvas.style.width = imageSize.width*2;
         canvas.style.height = imageSize.height*2;
-        canvas.width = imageSize.width*2;
-        canvas.height = imageSize.height*2;
+        canvas.width = imageSize.width;
+        canvas.height = imageSize.height;
         
         ctx.clearRect(0,0,canvas.width,canvas.height);
         ctx.save();
         // move to the center of the canvas
-        ctx.translate(canvas.width/2,canvas.height/2);
+        //ctx.translate(canvas.width/2,canvas.height/2);
 
         // rotate the canvas to the specified degrees
-        ctx.rotate(270*Math.PI/180);
+        //tx.rotate(270*Math.PI/180);
         ctx.drawImage(img,-100, -200,imageSize.width,imageSize.height);
         ctx.restore();
       };

@@ -240,7 +240,7 @@ Code.LANG = Code.getLang();
  * @private
  */
 Code.TABS_ = [
-  'blocks', 'javascript', 'php', 'python', 'dart', 'lua', 'xml', 'json'
+  'blocks', 'javascript'//, 'php', 'python', 'dart', 'lua', 'xml', 'json'
 ];
 
 /**
@@ -248,7 +248,7 @@ Code.TABS_ = [
  * @private
  */
 Code.TABS_DISPLAY_ = [
-  'Blocks', 'JavaScript', 'PHP', 'Python', 'Dart', 'Lua', 'XML', 'JSON'
+  'Blocks', 'JavaScript'//, 'PHP', 'Python', 'Dart', 'Lua', 'XML', 'JSON'
 ];
 
 Code.selected = 'blocks';
@@ -357,7 +357,7 @@ Code.renderContent = function() {
     jsonTextarea.focus();
   } else if (content.id === 'content_javascript') {
     Code.attemptCodeGeneration(Blockly.JavaScript);
-  } else if (content.id === 'content_python') {
+  } /*else if (content.id === 'content_python') {
     Code.attemptCodeGeneration(Blockly.Python);
   } else if (content.id === 'content_php') {
     Code.attemptCodeGeneration(Blockly.PHP);
@@ -365,7 +365,7 @@ Code.renderContent = function() {
     Code.attemptCodeGeneration(Blockly.Dart);
   } else if (content.id === 'content_lua') {
     Code.attemptCodeGeneration(Blockly.Lua);
-  }
+  }*/
   if (typeof PR === 'object') {
     PR.prettyPrint();
   }

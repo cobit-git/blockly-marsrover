@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Blockly Demo: Step Execution with JS-Interpreter</title>
+  <script src="toolbox.js"></script>
+  <!-- acorn_interpreter.js is copied from the JS-Interpreter project
+    without modification. -->
+  <script src="acorn_interpreter.js"></script>
+
+  <script src="../../dist/blockly_compressed.js"></script>
+  <script src="../../dist/blocks_compressed.js"></script>
+  <script src="../../dist/javascript_compressed.js"></script>
+  <script src="../../build/msg/en.js"></script>
+  <style>
+    body {
+      background-color: #fff;
+      font-family: sans-serif;
+    }
+    /* Buttons */
+    button {
+    margin: 5px;
+    padding: 10px;
+    border-radius: 4px;
+    border: 1px solid #ddd;
+    font-size: large;
+    background-color: #eee;
+    color: #000;
+    }
+    button.primary {
+    border: 1px solid #dd4b39;
+    background-color: #dd4b39;
+    color: #fff;
+    }
+    button.primary>img {
+    opacity: 1;
+    }
+    button>img {
+    opacity: 0.6;
+    vertical-align: text-bottom;
+    }
+    button:hover>img {
+    opacity: 1;
+    }
+    button:active {
+    border: 1px solid #888 !important;
+    }
+    button:hover {
+    box-shadow: 2px 2px 5px #888;
+    }
+    button.disabled:hover>img {
+    opacity: 0.6;
+    }
+    button.disabled {
+    display: none;
+    }
+    button.notext {
+    font-size: 10%;
+    }
+  
+    h1 {
+      font-weight: normal;
+      font-size: 140%;
+    }
+    #sorry {
+      padding: 1ex;
+      background-color: #f9edbe;
+      border: solid 1px #f0c36d;
+    }
+    .privacyLink {
+      font-family: Roboto, Arial, Helvetica, sans-serif;
+      font-size: small;
+      text-decoration: none;
+    }
+    /* Sprited icons. */
+    .icon21 {
+    height: 21px;
+    width: 21px;
+    background-image: url(icons.png);
+    }
+    .trash {
+    background-position: 0px 0px;
+    }
+    .link {
+    background-position: -21px 0px;
+    }
+    .run {
+    background-position: -42px 0px;
+    }
+  </style>
+</head>
+<body>
+  <p>JD edu Digital textbook</p>
+  <p>Questions: using block, add 2 numbers 3 and 4 </p>
+  <button id="trashButton" class="notext" title="...">
+      <img src='../../media/1x1.gif' class="trash icon21">
+  </button>
+  <p>
+    <button onclick="stepCode()" id="stepButton">Step JavaScript</button>
+  </p>
+
+  <div style="width: 100%">
+    <div id="blocklyDiv"
+        style="display: inline-block; height: 480px; width: 40%"></div>
+    <textarea id="output" disabled="disabled"
+        style="display: inline-block; height: 480px; width: 30%;">
+    </textarea>
+    <textarea id="code" disabled="disabled"
+        style="display: inline-block; height: 480px; width: 30%;">
+    </textarea>
+  </div>
+  </body>
+
+  <script>
+    /*const startBlocks = {
+      "blocks": {
+        "blocks": [
+          {
+            "type": "variables_set",
+            "x": 20,
+            "y": 20,
+            "inline": true,
+            "fields": {
+              "VAR": {"id": "n"}
+            },
+            "inputs": {
+              "VALUE": {
+                "block": {
+                  "type": "math_number",
+                  "fields": {"NUM": 1}
+                }
+              }
+            },
+            "next": {
+              "block": {
+                "type": "controls_repeat_ext",
+                "inline": true,
+                "inputs": {
+                  "TIMES": {
+                    "block": {
+                      "type": "math_number",
+                      "fields": {"NUM": 4}
+                    }
+                  },
+                  "DO": {
+                    "block": {
+                      "type": "variables_set",
+                      "inline": true,
+                      "fields": {
+                        "VAR": {"id": "n"}
+                      },
+                      "inputs": {
+                        "VALUE": {
+                          "block": {
+                            "type": "math_arithmetic",
+                            "fields": {"OP": "MULTIPLY"},
+                            "inputs": {
+                              "A": {
+                                "block": {
+                                  "type": "variables_get",
+                                  "fields": {
+                                    "VAR": {"id": "n"}
+                                  }
+                                }
+                              },
+                              "B": {
+                                "block": {
+                                  "type": "math_number",
+                                  "fields": {"NUM": 2}
+                                }
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "next": {
+                        "block": {
+                          "type": "text_print",
+                          "inputs": {
+                            "TEXT": {
+                              "block": {
+                                "type": "variables_get",
+                                "fields": {
+                                  "VAR": {"id": "n"}
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "variables": [
+        {
+          "name": "n",
+          "id": "n"
+        }
+      ]
+    };*/
+
+    const demoWorkspace = Blockly.inject('blocklyDiv',
+        {media: '../../media/',
+         toolbox: toolboxJson});
+    Blockly.JavaScript.STATEMENT_PREFIX = 'highlightBlock(%1);\n';
+    Blockly.JavaScript.addReservedWords('highlightBlock');
+    //Blockly.serialization.workspaces.load(startBlocks, demoWorkspace)
+
+    const outputArea = document.getElementById('output');
+    const stepButton = document.getElementById('stepButton');
+    let myInterpreter = null;
+
+    function initApi(interpreter, globalObject) {
+      // Add an API function for the alert() block, generated for "text_print" blocks.
+      const wrapperAlert = function alert(text) {
+        text = arguments.length ? text : '';
+        outputArea.value += '\n' + text;
+      };
+      interpreter.setProperty(globalObject, 'alert',
+          interpreter.createNativeFunction(wrapperAlert));
+
+      // Add an API function for the prompt() block.
+      const wrapperPrompt = function prompt(text) {
+        return window.prompt(text);
+      };
+      interpreter.setProperty(globalObject, 'prompt',
+          interpreter.createNativeFunction(wrapperPrompt));
+
+      // Add an API function for highlighting blocks.
+      const wrapperHighlight = function(id) {
+        id = String(id || '');
+        return highlightBlock(id);
+      };
+      interpreter.setProperty(globalObject, 'highlightBlock',
+          interpreter.createNativeFunction(wrapperHighlight));
+    }
+
+    // Each step will run the interpreter until the highlightPause is true.
+    let highlightPause = false;
+
+    function highlightBlock(id) {
+      demoWorkspace.highlightBlock(id);
+      highlightPause = true;
+    }
+
+    function resetStepUi(clearOutput) {
+      demoWorkspace.highlightBlock(null);
+      highlightPause = false;
+
+      if (clearOutput) {
+        outputArea.value = 'Program output:\n=================';
+      }
+      myInterpreter = null;
+    }
+
+    function stepCode() {
+      if (!myInterpreter) {
+        // First statement of this code.
+        // Clear the program output.
+        resetStepUi(true);
+        const latestCode = Blockly.JavaScript.workspaceToCode(demoWorkspace);
+        myInterpreter = new Interpreter(latestCode, initApi);
+
+        // And then show generated code in an alert.
+        // In a timeout to allow the outputArea.value to reset first.
+        setTimeout(function() {
+          alert('Ready to execute the following code\n' +
+              '===================================\n' + latestCode);
+          highlightPause = true;
+          stepCode();
+        }, 1);
+        return;
+      }
+      highlightPause = false;
+      let hasMoreCode;
+      do {
+        try {
+          hasMoreCode = myInterpreter.step();
+        } finally {
+          if (!hasMoreCode) {
+            // Program complete, no more code to execute.
+            outputArea.value += '\n\n<< Program complete >>';
+
+            resetStepUi(false);
+
+            // Cool down, to discourage accidentally restarting the program.
+            stepButton.disabled = 'disabled';
+            setTimeout(function() {
+              stepButton.disabled = '';
+            }, 2000);
+
+            return;
+          }
+        }
+        // Keep executing until a highlight statement is reached,
+        // or the code completes or errors.
+      } while (hasMoreCode && !highlightPause);
+    }
+
+    demoWorkspace.addChangeListener(function(event) {
+      if (!event.isUiEvent) {
+        // Something changed.  Interpreter needs to be reloaded.
+        resetStepUi(true);
+      }
+    });
+    bindClick = function(el, func) {
+      if (typeof el === 'string') {
+        el = document.getElementById(el);
+      }
+      el.addEventListener('click', func, true);
+      function touchFunc(e) {
+          // Prevent code from being executed twice on touchscreens.
+          e.preventDefault();
+          func(e);
+      }
+      el.addEventListener('touchend', touchFunc, true);
+    };
+
+    bindClick('trashButton',
+        function() {discard();});
+
+    /**
+    * Discard all blocks from the workspace.
+    */
+    discard = function() {
+          console.log("test-1");
+          var count = demoWorkspace.getAllBlocks(false).length;
+          if (count < 2 ||
+              window.confirm(Blockly.Msg['DELETE_ALL_BLOCKS'].replace('%1', count))) {
+              demoWorkspace.clear();
+              if (window.location.hash) {
+              window.location.hash = '';
+              }
+          }
+      };
+
+  </script>
+
+</html>

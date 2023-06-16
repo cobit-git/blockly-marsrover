@@ -51,22 +51,18 @@ const blocks = createBlockDefinitionsFromJsonArray([
     "helpUrl": ""
   },
   {
-    "type": "wait_mili_sec",
-    "message0": "Wait %1 milisecond",
-    "args0": [
-      {
-        "type": "field_number",
-        "name": "MILI_SEC",
-        "value": 100,
-        "min": 0
-      }
-    ],
-    "inputsInline": true,
+    "type": "wait_seconds",
+    "message0": " wait %1 seconds",
+    "args0": [{
+      "type": "field_number",
+      "name": "SECONDS",
+      "min": 0,
+      "max": 600,
+      "value": 1,
+    }],
     "previousStatement": null,
     "nextStatement": null,
-    "colour": 230,
-    "tooltip": "",
-    "helpUrl": ""
+    "colour": "%{BKY_LOOPS_HUE}",
   },
   {
     "type": "led_on",
@@ -80,6 +76,25 @@ const blocks = createBlockDefinitionsFromJsonArray([
   {
     "type": "led_off",
     "message0": "Turn arduino LED OFF",
+    "previousStatement": null,
+    "nextStatement": null,
+    "colour": 230,
+    "tooltip": "",
+    "helpUrl": ""
+  },
+  {
+    "type": "console_print",
+    "message0": "console  print %1  %2",
+    "args0": [
+      {
+        "type": "input_dummy"
+      },
+      {
+        "type": "input_value",
+        "name": "CONSOLE_LOG"
+      }
+    ],
+    "inputsInline": true,
     "previousStatement": null,
     "nextStatement": null,
     "colour": 230,
