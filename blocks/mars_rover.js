@@ -65,6 +65,30 @@ const blocks = createBlockDefinitionsFromJsonArray([
     "colour": "%{BKY_LOOPS_HUE}",
   },
   {
+    "type": "read_angle",
+    "message0": "Read robot angle",
+    "output": null,
+    "colour": 230,
+    "tooltip": "",
+    "helpUrl": ""
+  },
+  {
+    "type": "read_sensor1",
+    "message0": "Read front distance sensor",
+    "output": null,
+    "colour": 230,
+    "tooltip": "",
+    "helpUrl": ""
+  },
+  {
+    "type": "read_sensor2",
+    "message0": "Read rear distance sensor",
+    "output": null,
+    "colour": 230,
+    "tooltip": "",
+    "helpUrl": ""
+  },
+  {
     "type": "led_on",
     "message0": "Turn arduino LED ON",
     "previousStatement": null,

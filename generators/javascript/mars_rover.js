@@ -71,6 +71,30 @@ JavaScript['console_print'] = function(block) {
   return code;
 };
 
+JavaScript['read_angle'] = function(block) {
+  // TODO: Assemble JavaScript into code variable.
+  //var code = '...';
+  // TODO: Change ORDER_NONE to the correct strength.
+  const code = "read_angle_acorn()";
+  return [code, Blockly.JavaScript.ORDER_NONE];
+};
+
+JavaScript['read_sensor1'] = function(block) {
+  // TODO: Assemble JavaScript into code variable.
+  //var code = '...';
+  // TODO: Change ORDER_NONE to the correct strength.
+  const code = "read_front_sensor_acorn()";
+  return [code, Blockly.JavaScript.ORDER_NONE];
+};
+
+JavaScript['read_sensor2'] = function(block) {
+  // TODO: Assemble JavaScript into code variable.
+  //var code = '...';
+  // TODO: Change ORDER_NONE to the correct strength.
+  const code = "read_rear_sensor_acorn()";
+  return [code, Blockly.JavaScript.ORDER_NONE];
+};
+
 setTimeout(function() {
   console.log('Works!');
 }, 3000);

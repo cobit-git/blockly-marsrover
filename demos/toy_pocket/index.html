@@ -113,7 +113,7 @@
     <button id="trashButton" class="notext" title="...">
       <img src='../../media/1x1.gif' class="trash icon21">
     </button>
-    <button id="runButton" class="notext primary" title="...">
+    <button  id="runButton" class="notext primary" title="...">
       <img src='../../media/1x1.gif' class="run icon21">
     </button>
   <div id="control-container" style="height: 480px; width: 600px;"></div>
@@ -134,6 +134,9 @@
     <block type="move_forward"></block>
     <block type="rover_stop"></block>
     <block type="wait_seconds"></block>
+    <block type="read_angle"></block>
+    <block type="read_sensor1"></block>
+    <block type="read_sensor2"></block>
   </category>
   
   <category name="Logic" colour="%{BKY_LOGIC_HUE}">
@@ -168,270 +171,282 @@
   </category>
 </xml> 
 <script>
-          /**
-        * Create a namespace for the application.
-        */
-        var Code = {};
-        /**
-        * Blockly's main workspace.
-        * @type {Blockly.WorkspaceSvg}
-        */
-        Code.workspace = null;
+  // create name space 
+  let Code = {};
 
-          /**
-        * Variables 
-        */
-        let runnerPid = 0;
-        let myInterpreter = null
+  // blockly workspae. holing blocks 
+  Code.workspace = null;
 
-        const outputArea = document.getElementById('output');
+  // variabls 
+  let runnerPid = 0;
+  let myInterpreter = null
+  let sensor1 = 0;
+  let sensor2 = 0;
+  let angle = 0;
+  // CoPlay control channel websocket variable 
+  let colinkWs;  
+  // CoPlay cam channel websocket variable
+  let ws;     
+  // image variable holding image for deep learning 
+  let imageDeep;      
 
-                /**
-        * Load blocks saved on App Engine Storage or in session/local storage.
-        * @param {string} defaultXml Text representation of default blocks.
-        */
-        Code.loadBlocks = function(defaultXml) {
-            try {
-                var loadOnce = window.sessionStorage.loadOnceBlocks;
-            } catch(e) {
-                // Firefox sometimes throws a SecurityError when accessing sessionStorage.
-                // Restarting Firefox fixes this, so it looks like a bug.
-                var loadOnce = null;
-            }
-            if ('BlocklyStorage' in window && window.location.hash.length > 1) {
-                // An href with #key trigers an AJAX call to retrieve saved blocks.
-                BlocklyStorage.retrieveXml(window.location.hash.substring(1));
-            } else if (loadOnce) {
-                // Language switching stores the blocks during the reload.
-                delete window.sessionStorage.loadOnceBlocks;
-                var xml = Blockly.utils.xml.textToDom(loadOnce);
-                Blockly.Xml.domToWorkspace(xml, Code.workspace);
-            } else if (defaultXml) {
-                // Load the editor with default starting blocks.
-                var xml = Blockly.utils.xml.textToDom(defaultXml);
-                Blockly.Xml.domToWorkspace(xml, Code.workspace);
-            } else if ('BlocklyStorage' in window) {
-                // Restore saved blocks in a separate thread so that subsequent
-                // initialization is not affected from a failed load.
-                window.setTimeout(BlocklyStorage.restoreBlocks, 0);
-            }
-        };
-        /**
-        * Bind a function to a button's click event.
-        * On touch enabled browsers, ontouchend is treated as equivalent to onclick.
-        * @param {!Element|string} el Button element or ID thereof.
-        * @param {!Function} func Event handler to bind.
-        */
-        Code.bindClick = function(el, func) {
-        if (typeof el === 'string') {
-            el = document.getElementById(el);
-        }
-        el.addEventListener('click', func, true);
-        function touchFunc(e) {
-            // Prevent code from being executed twice on touchscreens.
-            e.preventDefault();
-            func(e);
-        }
-        el.addEventListener('touchend', touchFunc, true);
-        };
-        Code.workspace = Blockly.inject('control-container',
-            {media: '../../media/',
-             toolbox: document.getElementById('toolbox')});
-    
-        // An href with #key triggers an AJAX call to retrieve saved blocks.
-        if ('BlocklyStorage' in window && window.location.hash.length > 1) {
-          BlocklyStorage.retrieveXml(window.location.hash.substring(1));
-        }
+  // output screen 
+  const outputArea = document.getElementById('output');
 
-        // Add to reserved word list: Local variables in execution environment (runJS)
-        // and the infinite loop detection function.
-        Blockly.JavaScript.addReservedWords('code,timeouts,checkTimeout');
-
-        Code.loadBlocks('');
-
-        /**
-        * Discard all blocks from the workspace.
-        */
-        Code.discard = function() {
-            var count = Code.workspace.getAllBlocks(false).length;
-            if (count < 2 ||
-                window.confirm(Blockly.Msg['DELETE_ALL_BLOCKS'].replace('%1', count))) {
-                Code.workspace.clear();
-                if (window.location.hash) {
-                window.location.hash = '';
-                }
-            }
-        };
-
-         /**
-        * 
-        * 
-        * @param {clearOutput} 
-        */
-        Code.resetStepUi = function(clearOutput) {
-        
-        //clearTimeout(runnerPid);
-        //demoWorkspace.highlightBlock(null);
-        //runButton.disabled = '';
-  
-        if (clearOutput) {
-          outputArea.value = 'Program output:\n=================';
-        }
-        //myInterpreter = null;
-        }
-
-
-      Code.initApi = function (interpreter, globalObject) {
-        // Add an API function for the alert() block, generated for "text_print" blocks.
-        const wrapperAlert = function alert(text) {
-          text = arguments.length ? text : '';
-          outputArea.value += '\n' + text;
-        };
-        interpreter.setProperty(globalObject, 'alert',
-            interpreter.createNativeFunction(wrapperAlert));
-  
-        // Add an API function for the prompt() block.
-        const wrapperPrompt = function prompt(text) {
-          return window.prompt(text);
-        };
-        interpreter.setProperty(globalObject, 'prompt',
-            interpreter.createNativeFunction(wrapperPrompt));
-  
-        // Add an API function for highlighting blocks.
-        const wrapper = function(id) {
-          id = String(id || '');
-          return highlightBlock(id);
-        };
-        interpreter.setProperty(globalObject, 'highlightBlock',
-            interpreter.createNativeFunction(wrapper));
-
-        // 
-        const wrapperEvtMoFo= function(){
-          return document.dispatchEvent(event_move_forward);
-        }
-        interpreter.setProperty(globalObject, 'move_forward_acorn',
-            interpreter.createNativeFunction(wrapperEvtMoFo));
-
-        //
-        const wrapperEvtStop = function(){
-          return document.dispatchEvent(event_rover_stop);
-        }
-        interpreter.setProperty(globalObject, 'rover_stop_acorn',
-            interpreter.createNativeFunction(wrapperEvtStop));
-  
-        // Add an API for the wait block.  See wait_block.js
-        initInterpreterWaitForSeconds(interpreter, globalObject);
-      }
-
-      Code.runner = function(){
-        if (myInterpreter) {
-          const hasMore = myInterpreter.run();
-          if (hasMore) {
-            // Execution is currently blocked by some async call.
-            // Try again later.
-            runnerPid = setTimeout(Code.runner, 10);
-          } else {
-            // Program is complete.
-            outputArea.value += '\n\n<< Program complete >>';
-            Code.resetStepUi(false);
-          }
-        }
-      }
-  
-
-      Code.runner = function(){
-          if (myInterpreter) {
-            const hasMore = myInterpreter.run();
-            if (hasMore) {
-              // Execution is currently blocked by some async call.
-              // Try again later.
-              runnerPid = setTimeout(Code.runner, 10);
-            } else {
-              // Program is complete.
-              outputArea.value += '\n\n<< Program complete >>';
-              Code.resetStepUi(false);
-            }
-          }
-        }
-
-        /**
-        * Execute the user's code.
-        * Just a quick and dirty eval.  Catch infinite loops.
-        * @param {Event} event Event created from listener bound to the function.
-        */
-        Code.runJS = function(event) {
-          // Prevent code from being executed twice on touchscreens.
-          if (event.type === 'touchend') {
-              event.preventDefault();
-            }
-            if(!myInterpreter){
-              Code.resetStepUi(true);
-          
-              //Blockly.JavaScript.INFINITE_LOOP_TRAP = 'checkTimeout();\n';
-              //var timeouts = 0;
-              //var checkTimeout = function() {
-              //  if (timeouts++ > 1000000) {
-              //      throw MSG['timeout'];
-              //  }
-              //};
-              var code = Blockly.JavaScript.workspaceToCode(Code.workspace);
-              myInterpreter = new Interpreter(code, Code.initApi);
-
-              
-              Code.runner();
-              //Blockly.JavaScript.INFINITE_LOOP_TRAP = null;
-              //try {
-              //  eval(code);
-              //} catch (e) {
-              //  alert(MSG['badCode'].replace('%1', e));
-             // }
-            }
-
-            
-        };
-
-        Code.bindClick('trashButton',
-        function() {Code.discard();});
-        Code.bindClick('runButton', Code.runJS);
-  window.addEventListener("load", function(evt){
-    console.log("load");
-    let host = "cobot.center"
-          let port = 8287;
-    //let host = "192.168.0.77";
-    //let port = 8277;
-    //inputHost.value = host //디폴트
-    if (window.location.protocol == 'https:') {
-      //inputPort.value = 8276;
-      port = 8287;
-      //port = 8277
-    } else {
-      //inputPort.value = 8277;
-      port = 8286;
-      //port = 8276 
+  // function for load blocks 
+  Code.loadBlocks = function(defaultXml) {
+    try {
+      var loadOnce = window.sessionStorage.loadOnceBlocks;
+    } catch(e) {
+      // Firefox sometimes throws a SecurityError when accessing sessionStorage.
+      // Restarting Firefox fixes this, so it looks like a bug.
+      var loadOnce = null;
     }
-    
+    if ('BlocklyStorage' in window && window.location.hash.length > 1) {
+      // An href with #key trigers an AJAX call to retrieve saved blocks.
+      BlocklyStorage.retrieveXml(window.location.hash.substring(1));
+    } else if (loadOnce) {
+      // Language switching stores the blocks during the reload.
+      delete window.sessionStorage.loadOnceBlocks;
+      var xml = Blockly.utils.xml.textToDom(loadOnce);
+      Blockly.Xml.domToWorkspace(xml, Code.workspace);
+    } else if (defaultXml) {
+      // Load the editor with default starting blocks.
+      var xml = Blockly.utils.xml.textToDom(defaultXml);
+      Blockly.Xml.domToWorkspace(xml, Code.workspace);
+    } else if ('BlocklyStorage' in window) {
+      // Restore saved blocks in a separate thread so that subsequent
+      // initialization is not affected from a failed load.
+      window.setTimeout(BlocklyStorage.restoreBlocks, 0);
+    }
+  };
+  // bind button click 
+  Code.bindClick = function(el, func) {
+    if (typeof el === 'string') {
+      el = document.getElementById(el);
+    }
+    el.addEventListener('click', func, true);
+    function touchFunc(e) {
+      // Prevent code from being executed twice on touchscreens.
+      e.preventDefault();
+      func(e);
+    }
+    el.addEventListener('touchend', touchFunc, true);
+  };
+
+  // workspace injecting 
+  Code.workspace = Blockly.inject('control-container',
+      {media: '../../media/',
+        toolbox: document.getElementById('toolbox')});
+
+  // An href with #key triggers an AJAX call to retrieve saved blocks.
+  if ('BlocklyStorage' in window && window.location.hash.length > 1) {
+    BlocklyStorage.retrieveXml(window.location.hash.substring(1));
+  }
+
+  // Add to reserved word list: Local variables in execution environment (runJS)
+  // and the infinite loop detection function.
+  Blockly.JavaScript.addReservedWords('code,timeouts,checkTimeout');
+
+  // load block 
+  Code.loadBlocks('');
+
+  // function for block discarding 
+  Code.discard = function() {
+    var count = Code.workspace.getAllBlocks(false).length;
+    if (count < 2 ||
+        window.confirm(Blockly.Msg['DELETE_ALL_BLOCKS'].replace('%1', count))) {
+        Code.workspace.clear();
+        if (window.location.hash) {
+        window.location.hash = '';
+      }
+    }
+  };
+
+  // function for clearing output screen 
+  Code.resetStepUi = function(clearOutput) {
+    clearTimeout(runnerPid);
+    //demoWorkspace.highlightBlock(null);
+    runButton.disabled = '';
+    if (clearOutput) {
+      outputArea.value = 'Program output:\n=================';
+    }
+    myInterpreter = null;
+  }
+
+  // function for get robot positional angle 
+  Code.getAngle = function(){
+    return angle;
+  }
+
+
+  // Register the interpreter asynchronous function. waitForSeconds()
+  function initInterpreterWaitForSeconds(interpreter, globalObject) {
+    // Ensure function name does not conflict with variable names.
+    Blockly.JavaScript.addReservedWords('waitForSeconds');
+    const wrapper = interpreter.createAsyncFunction(
+      function(timeInSeconds, callback) {
+        // Delay the call to the callback.
+        setTimeout(callback, timeInSeconds * 1000);
+      });
+    interpreter.setProperty(globalObject, 'waitForSeconds', wrapper);
+  }
+
+  // Add custom function to acron interpreter 
+  Code.initApi = function (interpreter, globalObject) {
+    // Add an API function for the alert() block, generated for "text_print" blocks.
+    const wrapperAlert = function alert(text) {
+      text = arguments.length ? text : '';
+      outputArea.value += '\n' + text;
+    };
+    interpreter.setProperty(globalObject, 'alert',
+        interpreter.createNativeFunction(wrapperAlert));
+
+    // Add an API function for the prompt() block.
+    const wrapperPrompt = function prompt(text) {
+      return window.prompt(text);
+    };
+    interpreter.setProperty(globalObject, 'prompt',
+        interpreter.createNativeFunction(wrapperPrompt));
+
+    // Add an API function for highlighting blocks.
+    const wrapper = function(id) {
+      id = String(id || '');
+      return highlightBlock(id);
+    };
+    interpreter.setProperty(globalObject, 'highlightBlock',
+        interpreter.createNativeFunction(wrapper));
+
+    // robot move forward 
+    const wrapperEvtMoFo= function(){
+      return document.dispatchEvent(event_move_forward);
+    }
+    interpreter.setProperty(globalObject, 'move_forward_acorn',
+        interpreter.createNativeFunction(wrapperEvtMoFo));
+
+    // robot stop 
+    const wrapperEvtStop = function(){
+      return document.dispatchEvent(event_rover_stop);
+    }
+    interpreter.setProperty(globalObject, 'rover_stop_acorn',
+        interpreter.createNativeFunction(wrapperEvtStop));
+
+    // get robot positional angle 
+    const wrapperReadAngle = function(){
+      return angle;
+    }
+    interpreter.setProperty(globalObject, 'read_angle_acorn',
+        interpreter.createNativeFunction(wrapperReadAngle));
+
+    // get robot front distance sensor 
+    const wrapperReadSensor1 = function(){
+      return sensor1;
+    }
+    interpreter.setProperty(globalObject, 'read_front_sensor_acorn',
+        interpreter.createNativeFunction(wrapperReadSensor1));
+
+    // get robot rear distance sensor
+    const wrapperReadSensor2 = function(){
+      return sensor2;
+    }
+    interpreter.setProperty(globalObject, 'read_rear_sensor_acorn',
+        interpreter.createNativeFunction(wrapperReadSensor2));
+
+    // Add an API for the wait block.  See wait_block.js
+    initInterpreterWaitForSeconds(interpreter, globalObject);
+  }
+
+  // function for runnng block using acorn. called by Code.runJS
+  Code.runner = function(){
+    if (myInterpreter) {
+      const hasMore = myInterpreter.run();
+      if (hasMore) {
+        // Execution is currently blocked by some async call.
+        // Try again later.
+        runnerPid = setTimeout(Code.runner, 10);
+      } else {
+        // Program is complete.
+        outputArea.value += '\n\n<< Program complete >>';
+        Code.resetStepUi(false);
+      }
+    }
+  }
+
+  // function for run user javascript code 
+  Code.runJS = function(event) {
+    // Prevent code from being executed twice on touchscreens.
+    if (event.type === 'touchend') {
+      event.preventDefault();
+    }
+    if(!myInterpreter){
+      Code.resetStepUi(true);
+      var code = Blockly.JavaScript.workspaceToCode(Code.workspace);
+      runButton.disabled = 'disabled';
+      setTimeout(function() {
+        alert('Ready to execute the following code\n' +
+            '===================================\n' + code);
+        myInterpreter = new Interpreter(code, Code.initApi);
+        Code.runner();
+      }, 1);
+      return;
+    }
+  };
+
+  // UI & output clear when event occur
+  Code.workspace.addChangeListener(function(event) {
+    if (!event.isUiEvent) {
+      // Something changed.  Interpreter needs to be reloaded.
+      Code.resetStepUi(true);
+    }
+  });
+
+  // registering trash button handler 
+  Code.bindClick('trashButton',function() {Code.discard();});
+
+  // registering run button handler 
+  Code.bindClick('runButton', Code.runJS);
+
+  // registering window loading event 
+  window.addEventListener("load", function(evt){
+    let host = "cobot.center"
+    let port = 8287;
+    if (window.location.protocol == 'https:') {
+      port = 8287;
+    } else {
+      port = 8286;
+    }
+    // openning CoPlay channel 
     openChannels(host, port);
   });
 
-  async function load_model(){
+  // deep learning model loading 
+  Code.load_model = async function(){
     console.log('loading moblienet...');
     net = await mobilenet.load();
     console.log('Successfully loaded model');
   }
 
+  // === deep learning code start === 
+  // Capturing image, inferencing, classifying 
   const addExample = async classId => {
     // Capture an image from the web camera.
-    const img = await webcam.capture();
-
-    // Get the intermediate activation of MobileNet 'conv_preds' and pass that
+    let arrayBufferView = new Uint8Array( imageDeep );
+    let blob = new Blob( [ arrayBufferView ], { type: "image/jpeg" } );
+    let urlCreator = window.URL || window.webkitURL;
+    let imageUrl = urlCreator.createObjectURL( blob );
+    let img  = new Image();
+    let imageData = imageUrl  
+    img.src = imageData;
+    img.onload = function(){
+        // Get the intermediate activation of MobileNet 'conv_preds' and pass that
     // to the KNN classifier.
     const activation = net.infer(img, true);
 
     // Pass the intermediate activation to the classifier.
     classifier.addExample(activation, classId);
 
-    // Dispose the tensor to release the memory.
-    img.dispose();
+    };
+  
   };
 
   // When clicking a button, add an example for that class.
@@ -439,86 +454,61 @@
   document.getElementById('class-b').addEventListener('click', () => addExample(1));
   document.getElementById('class-c').addEventListener('click', () => addExample(2));
 
+  // knn classifyer 
   const classifier = knnClassifier.create();
-  load_model();
+  Code.load_model();
+  // === deep learning code end === 
 
-  var colinkWs;
-  // motor control block
-  var motor_speed = 0;
-  // wait block 
-  var wait_time = 0
-  
   // Custom event: move_forward 
   const event_move_forward = new Event("move_forward")
   document.addEventListener("move_forward", e => {
-    console.log("move forward "+ motor_speed);
     colinkWs.send("AU");
   })
 
   // Custom event: move_forward 
   const event_rover_stop = new Event("rover_stop")
   document.addEventListener("rover_stop", e => {
-    console.log("rover stop");
     colinkWs.send("STOP");
   })
 
-  /**
-    * Register the interpreter asynchronous function
-    * <code>waitForSeconds()</code>.
-    */
-    function initInterpreterWaitForSeconds(interpreter, globalObject) {
-      // Ensure function name does not conflict with variable names.
-      Blockly.JavaScript.addReservedWords('waitForSeconds');
-
-      const wrapper = interpreter.createAsyncFunction(
-        function(timeInSeconds, callback) {
-          // Delay the call to the callback.
-          setTimeout(callback, timeInSeconds * 1000);
-        });
-      interpreter.setProperty(globalObject, 'waitForSeconds', wrapper);
-
-    }
-  
   // To disable scroll for arrow keys and space key 
   function disableScroll() { 
     document.body.classList.add("stop-scrolling"); 
   } 
+  // disable scroll 
   let stopScroll = disableScroll();
-  // To chabge control channel connect image 
+
+  // To change CoPlay control channel connect image 
   function connImgChange(status){
     if(status == "on"){
-      console.log("connImgChang - on");
       $("#connectId").attr("src", "connected.png");
     }else if(status == "off"){
-      console.log("connImgChang - off");
       $("#connectId").attr("src", "disconnected.png");
     }		
   }
-  // To chabge camera channel connect image 
+  // To change CoPlay camera channel connect image 
   function connCamImgChange(status){
     if(status == "on"){
-      console.log("connImgChang - on");
       $("#camConnectId").attr("src", "connected.png");
     }else if(status == "off"){
-      console.log("connImgChang - off");
       $("#camConnectId").attr("src", "disconnected.png");
     }		
   }
 
-  
+  // CoPlay control channel selctor 
   const channelMenu = document.querySelector('#channles')
   let channlesApiUrl = "";
-  let saveChannle = []; //api로 받아온 채널 저장.
+  let saveChannle = []; 
   let APIOption = {
             mode: "sub",
             channel: "btlb3pjpc98lsdbc0lj0",
             track: "colink",
             mime: 'video/jpeg'
         }
-
+  // CoPlay cam channel selector 
   const camChannelMenu = document.querySelector('#cam_channles')
   let camChannlesApiUrl = "";
-  let camSaveChannle = []; //api로 받아온 채널 저장.
+  let camSaveChannle = []; 
   let camAPIOption = {
             mode: "sub",
             channel: "btlb3pjpc98lsdbc0lj0",
@@ -526,11 +516,8 @@
             mime: 'video/jpeg'
         }
 
-
-  var ws;
+  
   function openChannels(host, port){
-    
-    //console.log("Try to open channels...")
     if (window.location.protocol == 'https:') {
       channlesApiUrl = `https://${host}:${port}/monitor/http/cmd?format=json&obj=channel&op=show`;
     } else {
@@ -554,14 +541,12 @@
           }
         })
       });
-
-    console.log("Try to open cam channels...")
     if (window.location.protocol == 'https:') {
       camChannlesApiUrl = `https://${host}:${port}/monitor/http/cmd?format=json&obj=channel&op=show`;
     } else {
       camChannlesApiUrl = `http://${host}:${port}/monitor/http/cmd?format=json&obj=channel&op=show`;
     }
-    console.log(camChannlesApiUrl);
+    //console.log(camChannlesApiUrl);
     fetch(camChannlesApiUrl)
       .then(function (response) {
         return response.json()
@@ -582,23 +567,21 @@
         })
       });
     
-    // "Open" button onClick 
+    // "Open" button onClick - control channel 
     document.getElementById("open").onclick = function (evt) {
-      //colinkUrl = `ws://192.168.0.77:8276/pang/ws/sub?channel=ca6s906pjh63qlu2ahh0&track=colink`;
-      //colinkUrl = `ws://cobot.center:8286/pang/ws/sub?channel=ca6s906pjh63qlu2ahh0&track=colink&mode=bundle`;
       if (window.location.protocol == 'https:') {
-                    colinkUrl = `wss://${host}:${port}/pang/ws/${APIOption.mode}?channel=${APIOption.channel}&track=${APIOption.track}&mode=bundle`;
-                } else {
-                    colinkUrl = `ws://${host}:${port}/pang/ws/${APIOption.mode}?channel=${APIOption.channel}&track=${APIOption.track}&mode=bundle`;
-                }
-      
+          colinkUrl = `wss://${host}:${port}/pang/ws/${APIOption.mode}?channel=${APIOption.channel}&track=${APIOption.track}&mode=bundle`;
+      } else {
+        colinkUrl = `ws://${host}:${port}/pang/ws/${APIOption.mode}?channel=${APIOption.channel}&track=${APIOption.track}&mode=bundle`;
+      }
+      // creating websocket  
       colinkWs = new WebSocket(colinkUrl);
+      // websocket open event 
       colinkWs.onopen = function (evt) {
         connImgChange("on");
         console.log(colinkWs);
         if (colinkWs) {
           window.setInterval(() => {
-
             if (colinkWs != null){
               colinkWs.send("123")
             console.log("heart beat from web")
@@ -608,12 +591,7 @@
           window.addEventListener("gamepadconnected", function (e) {
             console.log("Gamepad connected");
           });
-
-        
-          var down = false;
-
-        
-
+          let down = false;
           function keyHandler(e){
             const key = event.key;
             
@@ -648,6 +626,7 @@
           document.addEventListener('keyup', keyUpHandler);
         }
       };
+      // websocket closing event 
       colinkWs.onclose = function (evt) {
         connImgChange("off")
         document.removeEventListener("keydown", keyHandler);
@@ -655,34 +634,96 @@
         colinkWs = null;
       };
 
+      // websocket message event 
       colinkWs.onmessage = function (evt) {
         //console.log(evt.data);
         if (typeof evt.data == "object") {
-          draw(evt.data);
+          
         } else if (typeof evt.data == "string") {
-          // mimetype.innerHTML = `mime.Type = ${evt.data}`;
+          var a = evt.data.indexOf('a')
+          var b = evt.data.indexOf('b')
+          var c = evt.data.indexOf('c')
+          var d = evt.data.indexOf('d')
+          angle = parseInt(evt.data.substring(a+1, b), 10);
+          sensor1 = parseInt(evt.data.substring(b+1, c), 10);
+          sensor2 = parseInt(evt.data.substring(c+1, d), 10);
         } else {
-          //print("RESPONSE: " + evt.data);
+
         }
       };
+
+      // websocket error event 
       colinkWs.onerror = function (evt) {
         
       };
       return false;
     };
-    // "Close" button onClick 
+    // "Close" button onClick - control channel 
     document.getElementById("close").onclick = function (evt) {
-                if (!colinkWs) {
-                    return false;
-                }
-                if (colinkWs) {
+      if (!colinkWs) {
+        return false;
+      }
+      if (colinkWs) {
         connImgChange("off")
         document.removeEventListener("keydown", keyHandler);
         document.removeEventListener('keyup', keyUpHandler);
-                    colinkWs.close();
-                }
-                return false;
-            };
+        colinkWs.close();
+      }
+      return false;
+    };
+
+    // control channel menu change event 
+    channelMenu.onchange = function (e) { 
+      APIOption.channel = saveChannle[this.value][1];
+    }
+
+    // cam channel menu change event 
+    camChannelMenu.onchange = function (e) { 
+      camAPIOption.channel = camSaveChannle[this.value][1];
+    }
+
+    // "Open" button onClick - cam channel 
+    document.getElementById("cam_open").onclick = function(evt) {
+      if (window.location.protocol == 'https:') {
+        wsurl = `wss://${host}:${port}/pang/ws/${camAPIOption.mode}?channel=${camAPIOption.channel}&track=<label>`;
+      } else {
+        wsurl = `ws://${host}:${port}/pang/ws/${camAPIOption.mode}?channel=${camAPIOption.channel}&track=<label>`;
+      }
+      
+      // cam channel websocket 
+      ws = new WebSocket(wsurl);
+      ws.binaryType = 'arraybuffer';
+
+      // websocket open event 
+      ws.onopen = function(evt) {
+        connCamImgChange("on");
+      }
+
+      // websocket close event 
+      ws.onclose = function(evt) {
+        ws = null;
+        connCamImgChange("off");
+      }
+
+      // wevsocket message event 
+      ws.onmessage = function(evt) {
+        if (typeof evt.data == "object") {
+          imageDeep = evt.data;
+          draw(evt.data)
+        } else if (typeof evt.data == "string") {
+         
+        } else {
+        
+        }
+      }
+      // wesocket error event 
+      ws.onerror = function(evt) {
+        
+      }
+      return false;
+    };
+
+    // close button onClick - cam channel 
     document.getElementById("cam_close").onclick = function(evt) {
       if (!ws) {
         return false;
@@ -691,106 +732,39 @@
       ws.close();
       return false;
     };
-    channelMenu.onchange = function (e) { //채널을 클릭했을 떄.
-                APIOption.channel = saveChannle[this.value][1];
-      console.log(APIOption.channel, "control channel");
-
-            }
-    camChannelMenu.onchange = function (e) { //채널을 클릭했을 떄.
-                camAPIOption.channel = camSaveChannle[this.value][1];
-      console.log(camAPIOption.channel, "cam channel");
-
-            }
-    document.getElementById("cam_open").onclick = function(evt) {
-      if (window.location.protocol == 'https:') {
-        wsurl = `wss://${host}:${port}/pang/ws/${camAPIOption.mode}?channel=${camAPIOption.channel}&track=<label>`;
-      } else {
-        wsurl = `ws://${host}:${port}/pang/ws/${camAPIOption.mode}?channel=${camAPIOption.channel}&track=<label>`;
-      }
-      
-      ws = new WebSocket(wsurl);
-      ws.binaryType = 'arraybuffer';
-
-      ws.onopen = function(evt) {
-        connCamImgChange("on");
-        console.log(ws);
-      }
-      ws.onclose = function(evt) {
-        ws = null;
-        connCamImgChange("off");
-      }
-      ws.onmessage = function(evt) {
-        // console.log(typeof evt.data)
-        if (typeof evt.data == "object") {
-          draw(evt.data)
-        } else if (typeof evt.data == "string") {
-          //mimetype.innerHTML = `mime.Type = ${evt.data}`
-        } else {
-          //print("RESPONSE: " + evt.data);
-        }
-      }
-      ws.onerror = function(evt) {
-        //print("ERROR: " + evt.data);
-      }
-      return false;
-    };
-    
   } // End of openChannels()
   
-  var canvas = document.getElementById('canvas');
-  var ctx = canvas.getContext('2d');
-    let imageSize = {
-      width : 320,
-      height : 240
+  // cam image draw code 
+  let canvas = document.getElementById('canvas');
+  let ctx = canvas.getContext('2d');
+  let imageSize = {
+    width : 320,
+    height : 240
   }
   window.onload = () => {
-      canvas.style.width = 320;
-      canvas.style.height = 240;
+    canvas.style.width = 320;
+    canvas.style.height = 240;
   }
   function draw(data) {
-    var arrayBufferView = new Uint8Array( data );
-    var blob = new Blob( [ arrayBufferView ], { type: "image/jpeg" } );
-    var urlCreator = window.URL || window.webkitURL;
-    var imageUrl = urlCreator.createObjectURL( blob );
-
-    var img  = new Image();
-
-    var imageData = imageUrl  //'data:image/jpeg;base64,' + Json;
+    let arrayBufferView = new Uint8Array( data );
+    let blob = new Blob( [ arrayBufferView ], { type: "image/jpeg" } );
+    let urlCreator = window.URL || window.webkitURL;
+    let imageUrl = urlCreator.createObjectURL( blob );
+    let img  = new Image();
+    let imageData = imageUrl  
     img.src = imageData;
-    //console.log(blob.size)
-    if (blob.size > 20000 && blob.size < 75000) {
-      imageSize.width = 800;
-      imageSize.height = 600;
-    }
-    if (blob.size > 75000 && blob.size < 150000) { //HD
-      imageSize.width = 1280;
-      imageSize.height = 720;
-    }
-    if (blob.size > 150000 && blob.size < 190000) { //FHD
-      imageSize.width = 1920;
-      imageSize.height = 1080;
-    }
-    if (blob.size > 200000 && blob.size < 300000) { //QHD
-      imageSize.width = 2560;
-      imageSize.height = 1440;
-    }
-
+    
     img.onload = function(){
-      canvas.style.width = imageSize.width*2;
-      canvas.style.height = imageSize.height*2;
+      canvas.style.width = imageSize.width;
+      canvas.style.height = imageSize.height;
       canvas.width = imageSize.width;
       canvas.height = imageSize.height;
       
       ctx.clearRect(0,0,canvas.width,canvas.height);
       ctx.save();
-      // move to the center of the canvas
-      //ctx.translate(canvas.width/2,canvas.height/2);
-
-      // rotate the canvas to the specified degrees
-      //tx.rotate(270*Math.PI/180);
       ctx.drawImage(img,0, 0,imageSize.width,imageSize.height);
       ctx.restore();
     };
-      }  // end of draw()
+  }  // end of draw()
 </script>
 </html>
