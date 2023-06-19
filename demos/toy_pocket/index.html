@@ -186,9 +186,7 @@
   // CoPlay control channel websocket variable 
   let colinkWs;  
   // CoPlay cam channel websocket variable
-  let ws;     
-  // image variable holding image for deep learning 
-  let imageDeep;      
+  let ws;        
 
   // output screen 
   const outputArea = document.getElementById('output');
@@ -426,26 +424,23 @@
     console.log('Successfully loaded model');
   }
 
+  let class_a = false;
+  let class_b = false;
+  let class_c = false;
+
   // === deep learning code start === 
   // Capturing image, inferencing, classifying 
   const addExample = async classId => {
-    // Capture an image from the web camera.
-    let arrayBufferView = new Uint8Array( imageDeep );
-    let blob = new Blob( [ arrayBufferView ], { type: "image/jpeg" } );
-    let urlCreator = window.URL || window.webkitURL;
-    let imageUrl = urlCreator.createObjectURL( blob );
-    let img  = new Image();
-    let imageData = imageUrl  
-    img.src = imageData;
-    img.onload = function(){
-        // Get the intermediate activation of MobileNet 'conv_preds' and pass that
-    // to the KNN classifier.
-    const activation = net.infer(img, true);
 
-    // Pass the intermediate activation to the classifier.
-    classifier.addExample(activation, classId);
-
-    };
+    if (classId == 0){
+      console.log(" add eample btn");
+      class_a = true;
+    }else if(classId == 1){
+      class_b = true;
+    }else if(classId == 2){
+      class_c = true;
+    }
+      
   
   };
 
@@ -706,10 +701,80 @@
       }
 
       // wevsocket message event 
-      ws.onmessage = function(evt) {
+      
+      ws.onmessage = async function(evt) {
         if (typeof evt.data == "object") {
-          imageDeep = evt.data;
-          draw(evt.data)
+          draw(evt.data);
+
+          if (classifier.getNumClasses() > 0) {
+            const buffer = event.data;
+            console.log("aleady has example");
+
+
+            // Create an Image object from the ArrayBuffer
+            const image = new Image();
+            const blob = new Blob([buffer], { type: 'image/jpeg' });
+            const imageURL = URL.createObjectURL(blob);
+            image.src = imageURL;
+  
+            // Wait for the Image object to load
+            await new Promise((resolve) => (image.onload = resolve));
+  
+            // Get the image data from the loaded Image object
+            //const imageData = tf.browser.fromPixels(image);
+            // Preprocess the image data
+            const preprocessed = net.infer(image, 'conv_preds');
+
+            // Perform classification
+            const predictions = await classifier.predictClass(preprocessed);
+
+            // Get the top results
+            const topPredictions = Array.from(predictions)
+              .map((p, i) => ({
+                probability: p,
+                className: net.getClassName(i),
+              }))
+              .sort((a, b) => b.probability - a.probability)
+              .slice(0, 5);
+
+            // Display the top predictions
+            console.log(topPredictions);
+
+            // Cleanup the resources
+            URL.revokeObjectURL(imageURL);
+            imageData.dispose();
+            preprocessed.dispose();
+          
+          }else{
+            if(class_a == true){
+              console.log("add example 1");
+              const buffer = event.data;
+
+              // Create an Image object from the ArrayBuffer
+              const image = new Image();
+              const blob = new Blob([buffer], { type: 'image/jpeg' });
+              const imageURL = URL.createObjectURL(blob);
+              image.src = imageURL;
+    
+              // Wait for the Image object to load
+              await new Promise((resolve) => (image.onload = resolve));
+    
+              // Get the image data from the loaded Image object
+              const imageData = tf.browser.fromPixels(image);
+              // Preprocess the image data
+              const preprocessed = net.infer(imageData, true);
+              classifier.addExample(preprocessed, 1);
+              class_a = false;
+            }
+            if(class_b == true){
+
+              class_b = false;
+            }
+            if(class_c == true){
+              
+              class_c = false;
+            }
+          }
         } else if (typeof evt.data == "string") {
          
         } else {
@@ -745,7 +810,7 @@
     canvas.style.width = 320;
     canvas.style.height = 240;
   }
-  function draw(data) {
+  async function draw(data) {
     let arrayBufferView = new Uint8Array( data );
     let blob = new Blob( [ arrayBufferView ], { type: "image/jpeg" } );
     let urlCreator = window.URL || window.webkitURL;
@@ -754,12 +819,11 @@
     let imageData = imageUrl  
     img.src = imageData;
     
-    img.onload = function(){
+    img.onload = async function(){
       canvas.style.width = imageSize.width;
       canvas.style.height = imageSize.height;
       canvas.width = imageSize.width;
       canvas.height = imageSize.height;
-      
       ctx.clearRect(0,0,canvas.width,canvas.height);
       ctx.save();
       ctx.drawImage(img,0, 0,imageSize.width,imageSize.height);
