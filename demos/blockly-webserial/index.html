@@ -4,10 +4,10 @@
     <meta charset="utf-8">
     <title>JD edu Blockly demo: add 2 number </title>
     <script src="acorn_interpreter.js"></script>
-    <script src="./blockly_compressed.js"></script>
-    <script src="./blocks_compressed.js"></script>
-    <script src="./javascript_compressed.js"></script>
-    <script src="./build_msg/en.js"></script>
+    <script src="../../dist/blockly_compressed.js"></script>
+    <script src="../../dist/blocks_compressed.js"></script>
+    <script src="../../dist/javascript_compressed.js"></script>
+    <script src="../../build/msg/en.js"></script>
     <style>
     body {
       background-color: #fff;
@@ -88,13 +88,13 @@
 <body>
     <p>JD edu Digital textbook</p>
     <button id="serialButton" class="notext" title="...">
-      <img src='./1x1.gif' class="link icon21">
+      <img src='../../media/1x1.gif' class="link icon21">
     </button>
     <button id="trashButton" class="notext" title="...">
-        <img src='./1x1.gif' class="trash icon21">
+        <img src='../../media/1x1.gif' class="trash icon21">
     </button>
     <button id="runButton" class="notext primary" title="...">
-        <img src='./1x1.gif' class="run icon21">
+        <img src='../../media/1x1.gif' class="run icon21">
     </button>
 
     <div style="width: 100%">
@@ -240,7 +240,7 @@
         el.addEventListener('touchend', touchFunc, true);
         };
         Code.workspace = Blockly.inject('blocklyDiv',
-            {media: './',
+            {media: '../../media/',
              toolbox: document.getElementById('toolbox')});
     
         // An href with #key triggers an AJAX call to retrieve saved blocks.

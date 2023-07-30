@@ -26,13 +26,28 @@ JavaScript['move_forward'] = function(block) {
   //    block.getFieldValue('SERVO'), NameType.VARIABLE);
   //const value = JavaScript.valueToCode(block, 'TEXT',
   //    JavaScript.ORDER_NONE) || "''";
-  const speed = block.getFieldValue('SPEED');
+  //const speed = block.getFieldValue('SPEED');
   //const code =  'motor_speed = '+speed+';\n document.dispatchEvent(event_move_forward);\n ';
   // for acron 
-  const code = "move_forward_acorn();\n";
+  const code = "move_forward_acorn();\nwaitForSeconds(0.3);\n";
   
   return code;
 };
+
+JavaScript['move_backward'] = function(block) {
+  // Append to a variable in place.
+  //const varName = JavaScript.nameDB_.getName(
+  //    block.getFieldValue('SERVO'), NameType.VARIABLE);
+  //const value = JavaScript.valueToCode(block, 'TEXT',
+  //    JavaScript.ORDER_NONE) || "''";
+  //const speed = block.getFieldValue('SPEED');
+  //const code =  'motor_speed = '+speed+';\n document.dispatchEvent(event_move_forward);\n ';
+  // for acron 
+  const code = "move_backward_acorn();\nwaitForSeconds(0.3);\n";
+  
+  return code;
+};
+
 
 JavaScript['rover_stop'] = function(block) {
   // Append to a variable in place.
@@ -41,7 +56,18 @@ JavaScript['rover_stop'] = function(block) {
   //const value = JavaScript.valueToCode(block, 'TEXT',
   //    JavaScript.ORDER_NONE) || "''";
   //const code =  'document.dispatchEvent(event_rover_stop);\n';
-  const code = "rover_stop_acorn();\n";
+  const code = "rover_stop_acorn();\nwaitForSeconds(0.3);\n";
+  return code;
+};
+
+JavaScript['object_detect'] = function(block) {
+  // Append to a variable in place.
+  //const varName = JavaScript.nameDB_.getName(
+  //    block.getFieldValue('SERVO'), NameType.VARIABLE);
+  //const value = JavaScript.valueToCode(block, 'TEXT',
+  //    JavaScript.ORDER_NONE) || "''";
+  //const code =  'document.dispatchEvent(event_rover_stop);\n';
+  const code = "object_detect_acorn();\n";
   return code;
 };
 
@@ -52,15 +78,28 @@ JavaScript['wait_seconds'] = function(block) {
   return code;
 };
 
+JavaScript['turn_left'] = function(block) {
+  //const degrees = Number(block.getFieldValue('DEGREES'));
+  const code = 'turn_left_acorn();\nwaitForSeconds(0.3);\n';
+  return code;
+};
+
+JavaScript['turn_right'] = function(block) {
+  //const degrees = Number(block.getFieldValue('DEGREES'));
+  const code = 'turn_right_acorn();waitForSeconds(0.3);\n\n';
+  return code;
+};
+
+
 JavaScript['led_on'] = function(block) {
   // TODO: Assemble JavaScript into code variable.
-  var code = 'console.log("LED on");\n document.dispatchEvent(event_led_on);\n';
+  const code = "led_on_acorn();\nwaitForSeconds(0.3);\n";
   return code;
 };
 
 JavaScript['led_off'] = function(block) {
   // TODO: Assemble JavaScript into code variable.
-  var code = 'console.log("LED off");\n document.dispatchEvent(event_led_off);\n';
+  const code = "led_off_acorn();\nwaitForSeconds(0.3);\n";
   return code;
 };
 

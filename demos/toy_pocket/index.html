@@ -43,10 +43,32 @@
 
 <body>
   <!-- Temporal object detecting trigger -->
-  <button id ="class-a">Add A</button>
-  <button id ="class-b">Add B</button>
-  <button id ="class-c">Add C</button>
-  
+  <button id ="classA">Add first label</button>
+  <button id ="classB">Add second label</button>
+  <button id ="classC">Perform inference </button>
+  <table>
+    <tr>
+      <td> <h1 style="color:#007700;">Number of first label </h1></td>
+      <td> <h1 id="label_1">0</h1></td>
+      <td> <h1 style="color:#007700;">Number of second label </h1></td>
+      <td> <h1 id="label_2">0</h1></td>
+    </tr>
+  </table>
+  <table>
+    <tr>
+      <td> <h1 style="color:#0000FF;">Angle</h1></td>
+      <td> <h1 id="angle">0</h1></td>
+      <td> <h1 style="color:#0000FF;">Front sensor </h1></td>
+      <td> <h1 id="frontSensor">0</h1></td>
+      <td> <h1 style="color:#0000FF;">Left sensor </h1></td>
+      <td> <h1 id="leftSensor">0</h1></td>
+      <td> <h1 style="color:#0000FF;">Right sensor </h1></td>
+      <td> <h1 id="rightSensor">0</h1></td>
+      <td> <h1 style="color:#0000FF;">Rear sensor </h1></td>
+      <td> <h1 id="rearSensor">0</h1></td>
+    </tr>
+  </table>
+ 
 <div id="container">
   <div id="upper-half">
     <div id="connection-container">
@@ -125,16 +147,20 @@
     <textarea id="output" disabled="disabled"
         style="display: inline-block; height: 480px; width: 38%;">
     </textarea>
-  </div>
+  </div> 
 
 </div>
 </body>
 <xml xmlns="https://developers.google.com/blockly/xml" id="toolbox" style="display: none">
   <category name="Mars Rover control" colour=200>
     <block type="move_forward"></block>
+    <block type="move_backward"></block>
     <block type="rover_stop"></block>
+    <block type="turn_left"></block>
+    <block type="turn_right"></block>
     <block type="wait_seconds"></block>
     <block type="read_angle"></block>
+    <block type="object_detect"></block>
     <block type="read_sensor1"></block>
     <block type="read_sensor2"></block>
   </category>
@@ -182,7 +208,11 @@
   let myInterpreter = null
   let sensor1 = 0;
   let sensor2 = 0;
+  let sensor3 = 0;
+  let sensor4 = 0;
   let angle = 0;
+  let label_1 = 0;
+  let label_2 = 0;
   // CoPlay control channel websocket variable 
   let colinkWs;  
   // CoPlay cam channel websocket variable
@@ -190,6 +220,63 @@
 
   // output screen 
   const outputArea = document.getElementById('output');
+  // deep learning variables
+  let net;
+  let infer_result;
+
+  const angle_disp = document.getElementById('angle');
+  function updateAngle() {
+    // Update the content of the element with the new number
+    angle_disp.textContent = angle;
+  }
+  setInterval(updateAngle, 100);
+
+  // fornt sensor value display
+  const dist_disp_1 = document.getElementById('frontSensor');
+  function updateFrontSensor() {
+    // Update the content of the element with the new number
+    dist_disp_1.textContent = sensor1;
+  }
+  setInterval(updateFrontSensor, 100);
+
+  // left sensor value display
+  const dist_disp_2 = document.getElementById('leftSensor');
+  function updateLeftSensor() {
+    // Update the content of the element with the new number
+    dist_disp_2.textContent = sensor2;
+  }
+  setInterval(updateLeftSensor, 100);
+
+  // right sensor value display
+  const dist_disp_3 = document.getElementById('rightSensor');
+  function updateRightSensor() {
+    // Update the content of the element with the new number
+    dist_disp_3.textContent = sensor3;
+  }
+  setInterval(updateRightSensor, 100);
+
+  // rear sensor value display
+  const dist_disp_4 = document.getElementById('rearSensor');
+  function updateRearSensor() {
+    // Update the content of the element with the new number
+    dist_disp_4.textContent = sensor4;
+  }
+  setInterval(updateRearSensor, 100);
+
+  // numbr of labels display 
+  const dist_disp_5 = document.getElementById('label_1');
+  function updateLabel1() {
+    // Update the content of the element with the new number
+    dist_disp_5.textContent = label_1;
+  }
+  setInterval(updateLabel1, 1000);
+
+  const dist_disp_6 = document.getElementById('label_2');
+  function updateLabel2() {
+    // Update the content of the element with the new number
+    dist_disp_6.textContent = label_2;
+  }
+  setInterval(updateLabel2, 1000);
 
   // function for load blocks 
   Code.loadBlocks = function(defaultXml) {
@@ -322,12 +409,42 @@
     interpreter.setProperty(globalObject, 'move_forward_acorn',
         interpreter.createNativeFunction(wrapperEvtMoFo));
 
+    // robot move forward 
+    const wrapperEvtMoBa= function(){
+      return document.dispatchEvent(event_move_backward);
+    }
+    interpreter.setProperty(globalObject, 'move_backward_acorn',
+        interpreter.createNativeFunction(wrapperEvtMoBa));
+
+    // robot turn left 
+    const wrapperTurnLeft = function(){
+      return document.dispatchEvent(event_turn_left);
+    }
+    interpreter.setProperty(globalObject, 'turn_left_acorn',
+        interpreter.createNativeFunction(wrapperTurnLeft));
+
+    // robot turn right
+    const wrapperTurnRight = function(){
+      return document.dispatchEvent(event_turn_right);
+    }
+    interpreter.setProperty(globalObject, 'turn_right_acorn',
+        interpreter.createNativeFunction(wrapperTurnRight));
+
     // robot stop 
     const wrapperEvtStop = function(){
       return document.dispatchEvent(event_rover_stop);
     }
     interpreter.setProperty(globalObject, 'rover_stop_acorn',
         interpreter.createNativeFunction(wrapperEvtStop));
+
+
+    // object detect 
+     const wrapperObjDetect = function(){
+      infer_start = true;
+    }
+    interpreter.setProperty(globalObject, 'object_detect_acorn',
+        interpreter.createNativeFunction(wrapperObjDetect));
+
 
     // get robot positional angle 
     const wrapperReadAngle = function(){
@@ -426,32 +543,31 @@
 
   let class_a = false;
   let class_b = false;
-  let class_c = false;
+  let infer_start = false;
 
   // === deep learning code start === 
   // Capturing image, inferencing, classifying 
   const addExample = async classId => {
-
+    //classA.disabled = true;
     if (classId == 0){
-      console.log(" add eample btn");
       class_a = true;
     }else if(classId == 1){
       class_b = true;
     }else if(classId == 2){
-      class_c = true;
+      infer_start = true;
     }
-      
-  
   };
 
   // When clicking a button, add an example for that class.
-  document.getElementById('class-a').addEventListener('click', () => addExample(0));
-  document.getElementById('class-b').addEventListener('click', () => addExample(1));
-  document.getElementById('class-c').addEventListener('click', () => addExample(2));
+  document.getElementById('classA').addEventListener('click', () => addExample(0));
+  document.getElementById('classB').addEventListener('click', () => addExample(1));
+  document.getElementById('classC').addEventListener('click', () => addExample(2));
 
   // knn classifyer 
   const classifier = knnClassifier.create();
+  // load mobileNet fre-trained model 
   Code.load_model();
+
   // === deep learning code end === 
 
   // Custom event: move_forward 
@@ -460,11 +576,46 @@
     colinkWs.send("AU");
   })
 
-  // Custom event: move_forward 
+  // Custom event: rover_stop
   const event_rover_stop = new Event("rover_stop")
   document.addEventListener("rover_stop", e => {
     colinkWs.send("STOP");
   })
+
+  // custom event: move_backward
+  const event_move_backward = new Event("move_backward")
+  document.addEventListener("move_backward", e => {
+    colinkWs.send("AD");
+  })
+
+  // Custom event: turn_left
+  const event_turn_left = new Event("turn_left")
+  document.addEventListener("turn_left", e => {
+    colinkWs.send("AL");
+  })
+
+  // Custom event: turn_right
+  const event_turn_right = new Event("turn_right")
+  document.addEventListener("turn_right", e => {
+    colinkWs.send("AR");
+  })
+
+   // Custom event: turn_right
+   const event_key_press = new Event("key_press")
+   document.addEventListener("key_press", e => {
+    if ((e.keyCode === 119) ||(e.keyCode === 87)) { // 'w' or 'W'  
+        console.log("uga-1");
+      }
+      if ((e.keyCode === 97) || (e.keyCode === 65)) {  // 'a' or 'A' 
+        console.log("uga-2");
+      }
+      if ((e.keyCode === 115) || (e.keyCode === 83)){  // 's' or 'S'
+        console.log("uga-3");
+      }
+      if ((e.keyCode === 100) || (e.keyCode === 68)){  // 'd' or 'D'
+        console.log("uga-4");
+      }
+   })
 
   // To disable scroll for arrow keys and space key 
   function disableScroll() { 
@@ -598,13 +749,13 @@
               colinkWs.send("AU");
             }
             if ((e.keyCode === 97) || (e.keyCode === 65)) {  // 'a' or 'A' 
-              
+              colinkWs.send("AL");
             }
             if ((e.keyCode === 115) || (e.keyCode === 83)){  // 's' or 'S'
               colinkWs.send("AD");
             }
             if ((e.keyCode === 100) || (e.keyCode === 68)){  // 'd' or 'D'
-             
+              colinkWs.send("AR");
             }
             if (e.keyCode === 32){  // 'Space'  stop rover 
               colinkWs.send("STOP");
@@ -635,13 +786,19 @@
         if (typeof evt.data == "object") {
           
         } else if (typeof evt.data == "string") {
+          console.log(evt.data)
           var a = evt.data.indexOf('a')
           var b = evt.data.indexOf('b')
           var c = evt.data.indexOf('c')
           var d = evt.data.indexOf('d')
+          var e = evt.data.indexOf('e')
+          var f = evt.data.indexOf('f')
           angle = parseInt(evt.data.substring(a+1, b), 10);
           sensor1 = parseInt(evt.data.substring(b+1, c), 10);
           sensor2 = parseInt(evt.data.substring(c+1, d), 10);
+          sensor3 = parseInt(evt.data.substring(d+1, e), 10);
+          sensor4 = parseInt(evt.data.substring(e+1, f), 10);
+          
         } else {
 
         }
@@ -705,15 +862,14 @@
       ws.onmessage = async function(evt) {
         if (typeof evt.data == "object") {
           draw(evt.data);
-
-          if (classifier.getNumClasses() > 0) {
+          if(class_a == true){
+            console.log("add example 1");
             const buffer = event.data;
-            console.log("aleady has example");
-
 
             // Create an Image object from the ArrayBuffer
             const image = new Image();
-            const blob = new Blob([buffer], { type: 'image/jpeg' });
+            let arrayBufferView = new Uint8Array( buffer );
+            const blob = new Blob([arrayBufferView], { type: 'image/jpeg' });
             const imageURL = URL.createObjectURL(blob);
             image.src = imageURL;
   
@@ -723,57 +879,59 @@
             // Get the image data from the loaded Image object
             //const imageData = tf.browser.fromPixels(image);
             // Preprocess the image data
-            const preprocessed = net.infer(image, 'conv_preds');
+            const preprocessed = net.infer(image, true);
+            classifier.addExample(preprocessed, 1);
+            class_a = false;
+            label_1 += 1;  
+            console.log(label_1);  
+      
+          }
+          if(class_b == true){
+            console.log("add example 2");
+            const buffer = event.data;
 
-            // Perform classification
-            const predictions = await classifier.predictClass(preprocessed);
-
-            // Get the top results
-            const topPredictions = Array.from(predictions)
-              .map((p, i) => ({
-                probability: p,
-                className: net.getClassName(i),
-              }))
-              .sort((a, b) => b.probability - a.probability)
-              .slice(0, 5);
-
-            // Display the top predictions
-            console.log(topPredictions);
-
-            // Cleanup the resources
-            URL.revokeObjectURL(imageURL);
-            imageData.dispose();
-            preprocessed.dispose();
-          
-          }else{
-            if(class_a == true){
-              console.log("add example 1");
-              const buffer = event.data;
-
-              // Create an Image object from the ArrayBuffer
-              const image = new Image();
-              const blob = new Blob([buffer], { type: 'image/jpeg' });
-              const imageURL = URL.createObjectURL(blob);
-              image.src = imageURL;
-    
-              // Wait for the Image object to load
-              await new Promise((resolve) => (image.onload = resolve));
-    
-              // Get the image data from the loaded Image object
-              const imageData = tf.browser.fromPixels(image);
-              // Preprocess the image data
-              const preprocessed = net.infer(imageData, true);
-              classifier.addExample(preprocessed, 1);
-              class_a = false;
-            }
-            if(class_b == true){
-
-              class_b = false;
-            }
-            if(class_c == true){
-              
-              class_c = false;
-            }
+            // Create an Image object from the ArrayBuffer
+            const image = new Image();
+            let arrayBufferView = new Uint8Array( buffer );
+            const blob = new Blob([arrayBufferView], { type: 'image/jpeg' });
+            const imageURL = URL.createObjectURL(blob);
+            image.src = imageURL;
+  
+            // Wait for the Image object to load
+            await new Promise((resolve) => (image.onload = resolve));
+  
+            // Get the image data from the loaded Image object
+            //const imageData = tf.browser.fromPixels(image);
+            // Preprocess the image data
+            const preprocessed = net.infer(image, true);
+            classifier.addExample(preprocessed, 2);
+            class_b = false;
+            label_2 += 1;
+            console.log(label_2);  
+          }
+          if (classifier.getNumClasses() > 0 && infer_start == true) {
+            // Create an Image object from the ArrayBuffer
+            const buffer = event.data;
+            const image = new Image();
+            let arrayBufferView = new Uint8Array( buffer );
+            const blob = new Blob([arrayBufferView], { type: 'image/jpeg' });
+            const imageURL = URL.createObjectURL(blob);
+            image.src = imageURL;
+  
+            // Wait for the Image object to load
+            await new Promise((resolve) => (image.onload = resolve));
+            // Get the image data from the loaded Image object
+            //const imageData = tf.browser.fromPixels(imageSiva);
+            // Get the activation from mobilenet from the webcam.            
+            const activation = net.infer(image, 'conv_preds'); 
+            // Get the most likely class and confidences from the classifier module.
+            const result = await classifier.predictClass(activation);
+            console.log(result.classIndex)
+            if(result.classIndex == 0)
+              window.alert("Image is Label 1.");
+            else
+              window.alert("Image is Label 2.");
+            infer_start = false;
           }
         } else if (typeof evt.data == "string") {
          

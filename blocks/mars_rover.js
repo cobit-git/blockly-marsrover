@@ -22,17 +22,17 @@ const blocks = createBlockDefinitionsFromJsonArray([
   // Move forward 
   {
     "type": "move_forward",
-    "message0": "Move forward with speed  %1",
-    "args0": [
-      {
-        "type": "field_number",
-        "name": "SPEED",
-        "value": 30,
-        "min": 0,
-        "max": 100,
-        "precision": 1
-      }
-    ],
+    "message0": "rover move forward",
+    "inputsInline": true,
+    "previousStatement": null,
+    "nextStatement": null,
+    "colour": 230,
+    "tooltip": "",
+    "helpUrl": ""
+  },
+  {
+    "type": "move_backward",
+    "message0": "rover move backward",
     "inputsInline": true,
     "previousStatement": null,
     "nextStatement": null,
@@ -42,7 +42,17 @@ const blocks = createBlockDefinitionsFromJsonArray([
   },
   {
     "type": "rover_stop",
-    "message0": "Rover stop",
+    "message0": "rover stop",
+    "inputsInline": true,
+    "previousStatement": null,
+    "nextStatement": null,
+    "colour": 230,
+    "tooltip": "",
+    "helpUrl": ""
+  },
+  {
+    "type": "object_detect",
+    "message0": "object detecting",
     "inputsInline": true,
     "previousStatement": null,
     "nextStatement": null,
@@ -62,7 +72,26 @@ const blocks = createBlockDefinitionsFromJsonArray([
     }],
     "previousStatement": null,
     "nextStatement": null,
-    "colour": "%{BKY_LOOPS_HUE}",
+  },
+  {
+    "type": "turn_left",
+    "message0": "rover turn left",
+    "inputsInline": true,
+    "previousStatement": null,
+    "nextStatement": null,
+    "colour": 230,
+    "tooltip": "",
+    "helpUrl": ""
+  },
+  {
+    "type": "turn_right",
+    "message0": "rover turn right",
+    "inputsInline": true,
+    "previousStatement": null,
+    "nextStatement": null,
+    "colour": 230,
+    "tooltip": "",
+    "helpUrl": ""
   },
   {
     "type": "read_angle",

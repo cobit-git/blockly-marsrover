@@ -7,7 +7,7 @@ cd $main_dir
 # set the directory path
 target=./distribution
 demo_dir=./demos
-code_dir=./code
+code_dir=./blockly-webserial
 target_msg=./msg
 target_build_msg=./build_msg
 
@@ -44,11 +44,11 @@ fi
 cd ..
 
 
-src_dir=./demos/code
+src_dir=./demos/blockly-webserial
 target_dir=./distribution
 comp_dir=./dist
 media_dir=./media
-msg_dir=./demos/code/msg
+msg_dir=./demos/blockly-webserial/msg
 build_msg_dir=./build/msg
 
 build_msg_target_dir=./distribution/build_msg
